@@ -56,9 +56,8 @@ The in-storage license feature will not be supported starting with Consul Enterp
 
 ## Q: What is the impact on evaluation licenses due to this change?
 
-The 6-hour trial period for evaluation licenses will be deprecated as of Consul Enterprise 1.10.0.
-This means that any clusters deployed with Consul 1.10.0+ent binaries will need to have a valid license on the disk (auto-loaded) or as an environment variable.
-Failure to provide a valid license key will result in the Consul server agent not starting.
+Consul Enterprise 1.10.0+ server agents require a valid license to start.
+The license can be provided on disk (auto-loaded) or as an environment variable.
 
 ## Q: Is there a grace period when licenses expire?
 
