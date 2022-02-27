@@ -186,6 +186,7 @@ github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5a
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.3.1/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.4.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+github.com/google/go-cmp v0.5.0/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.6 h1:BKbKCqvP6I+rmFHt06ZmyQtvB8xAkWdhFyr0ZUNZcxQ=
 github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
@@ -228,8 +229,6 @@ github.com/hashicorp/go-cleanhttp v0.5.1 h1:dH3aiDG9Jvb5r5+bYHsikaOUIpcM0xvgMXVo
 github.com/hashicorp/go-cleanhttp v0.5.1/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-connlimit v0.3.0 h1:oAojHGjFxUTTTA8c5XXnDqWJ2HLuWbDiBPTpWvNzvqM=
 github.com/hashicorp/go-connlimit v0.3.0/go.mod h1:OUj9FGL1tPIhl/2RCfzYHrIiWj+VVPGNyVPnUX8AqS0=
-github.com/hashicorp/go-discover v0.0.0-20210818145131-c573d69da192 h1:eje2KOX8Sf7aYPiAsLnpWdAIrGRMcpFjN/Go/Exb7Zo=
-github.com/hashicorp/go-discover v0.0.0-20210818145131-c573d69da192/go.mod h1:3/4dzY4lR1Hzt9bBqMhBzG7lngZ0GKx/nL6G/ad62wE=
 github.com/hashicorp/go-hclog v0.0.0-20180709165350-ff2cf002a8dd/go.mod h1:9bjs9uLqI8l75knNv3lV1kA55veR+WUPSiKIWcQHudI=
 github.com/hashicorp/go-hclog v0.9.1/go.mod h1:5CU+agLiy3J7N7QjHK5d05KxGsuXiQLrjA0H7acj2lQ=
 github.com/hashicorp/go-hclog v0.9.2/go.mod h1:5CU+agLiy3J7N7QjHK5d05KxGsuXiQLrjA0H7acj2lQ=
@@ -311,6 +310,10 @@ github.com/hashicorp/vic v1.5.1-0.20190403131502-bbfe86ec9443/go.mod h1:bEpDU35n
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/hashicorp/yamux v0.0.0-20210826001029-26ff87cf9493 h1:brI5vBRUlAlM34VFmnLPwjnCL/FxAJp9XvOdX6Zt+XE=
 github.com/hashicorp/yamux v0.0.0-20210826001029-26ff87cf9493/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
+github.com/hbgames/go-discover v0.0.0-20220227105510-8a16dacfb186 h1:Y9THgOF65A7XIVBnla0CYbLNGRX04hGM7gLVLSZAA7I=
+github.com/hbgames/go-discover v0.0.0-20220227105510-8a16dacfb186/go.mod h1:zvrYgLZC9vmoutGt8sxfMmGS/VOWD6NCEndEiQIp150=
+github.com/hetznercloud/hcloud-go v1.23.1 h1:SkYdCa6x458cMSDz5GI18iPz5j2hicACiDP6J/s/bTs=
+github.com/hetznercloud/hcloud-go v1.23.1/go.mod h1:xng8lbDUg+xM1dgc0yGHX5EeqbwIq7UYlMWMTx3SQVg=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
