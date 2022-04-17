@@ -8,7 +8,7 @@ replace github.com/hashicorp/consul/sdk => ./sdk
 
 replace launchpad.net/gocheck => github.com/go-check/check v0.0.0-20140225173054-eb6ee6f84d0a
 
-replace github.com/hashicorp/go-discover => github.com/hbgames/go-discover v0.0.0-20220301040410-a5cdba24710f
+replace github.com/hashicorp/go-discover => github.com/hbgames/go-discover v0.0.0-20220417184207-8803cf42a75b
 
 require (
 	github.com/Microsoft/go-winio v0.4.3 // indirect
