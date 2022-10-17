@@ -36,7 +36,7 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 		keyBits int
 	}{
 		{connect.DefaultPrivateKeyType, connect.DefaultPrivateKeyBits},
-		{"ec", 256},
+		// {"ec", 256}, skip since values are same as Defaults
 		{"ec", 384},
 		{"rsa", 2048},
 		{"rsa", 4096},
@@ -55,7 +55,7 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 				providerState := map[string]string{"foo": "dc1-value"}
 
 				// Initialize primary as the primary DC
-				dir1, srv := testServerWithConfig(t, func(c *Config) {
+				_, srv := testServerWithConfig(t, func(c *Config) {
 					c.Datacenter = "dc1"
 					c.PrimaryDatacenter = "dc1"
 					c.Build = "1.6.0"
@@ -63,12 +63,9 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 					c.CAConfig.Config["PrivateKeyBits"] = src.keyBits
 					c.CAConfig.Config["test_state"] = providerState
 				})
-				defer os.RemoveAll(dir1)
-				defer srv.Shutdown()
 				codec := rpcClient(t, srv)
-				defer codec.Close()
 
-				testrpc.WaitForLeader(t, srv.RPC, "dc1")
+				waitForLeaderEstablishment(t, srv)
 				testrpc.WaitForActiveCARoot(t, srv.RPC, "dc1", nil)
 
 				var (
@@ -83,7 +80,7 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 					require.Equal(r, src.keyBits, caRoot.PrivateKeyBits)
 				})
 
-				runStep(t, "sign leaf cert and make sure chain is correct", func(t *testing.T) {
+				testutil.RunStep(t, "sign leaf cert and make sure chain is correct", func(t *testing.T) {
 					spiffeService := &connect.SpiffeIDService{
 						Host:       "node1",
 						Namespace:  "default",
@@ -103,14 +100,14 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 					require.NoError(t, connect.ValidateLeaf(caRoot.RootCert, leafPEM, []string{}))
 				})
 
-				runStep(t, "verify persisted state is correct", func(t *testing.T) {
+				testutil.RunStep(t, "verify persisted state is correct", func(t *testing.T) {
 					state := srv.fsm.State()
 					_, caConfig, err := state.CAConfig(nil)
 					require.NoError(t, err)
 					require.Equal(t, providerState, caConfig.State)
 				})
 
-				runStep(t, "change roots", func(t *testing.T) {
+				testutil.RunStep(t, "change roots", func(t *testing.T) {
 					// Update a config value
 					newConfig := &structs.CAConfiguration{
 						Provider: "consul",
@@ -145,7 +142,7 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 					require.Equal(r, dst.keyBits, newCaRoot.PrivateKeyBits)
 				})
 
-				runStep(t, "sign leaf cert and make sure NEW chain is correct", func(t *testing.T) {
+				testutil.RunStep(t, "sign leaf cert and make sure NEW chain is correct", func(t *testing.T) {
 					spiffeService := &connect.SpiffeIDService{
 						Host:       "node1",
 						Namespace:  "default",
@@ -165,7 +162,7 @@ func TestConnectCA_ConfigurationSet_ChangeKeyConfig_Primary(t *testing.T) {
 					require.NoError(t, connect.ValidateLeaf(newCaRoot.RootCert, leafPEM, []string{}))
 				})
 
-				runStep(t, "verify persisted state is still correct", func(t *testing.T) {
+				testutil.RunStep(t, "verify persisted state is still correct", func(t *testing.T) {
 					state := srv.fsm.State()
 					_, caConfig, err := state.CAConfig(nil)
 					require.NoError(t, err)
@@ -404,6 +401,18 @@ func TestCAManager_RenewIntermediate_Vault_Primary(t *testing.T) {
 	err = msgpackrpc.CallWithCodec(codec, "ConnectCA.Sign", &req, &cert)
 	require.NoError(t, err)
 	verifyLeafCert(t, activeRoot, cert.CertPEM)
+
+	// Wait for the primary's old intermediate to be pruned after expiring.
+	oldIntermediate := activeRoot.IntermediateCerts[0]
+	retry.Run(t, func(r *retry.R) {
+		store := s1.caManager.delegate.State()
+		_, storedRoot, err := store.CARootActive(nil)
+		r.Check(err)
+
+		if storedRoot.IntermediateCerts[0] == oldIntermediate {
+			r.Fatal("old intermediate should be gone")
+		}
+	})
 }
 
 func patchIntermediateCertRenewInterval(t *testing.T) {
@@ -519,6 +528,18 @@ func TestCAManager_RenewIntermediate_Secondary(t *testing.T) {
 	err = msgpackrpc.CallWithCodec(codec, "ConnectCA.Sign", &req, &cert)
 	require.NoError(t, err)
 	verifyLeafCert(t, activeRoot, cert.CertPEM)
+
+	// Wait for dc2's old intermediate to be pruned after expiring.
+	oldIntermediate := activeRoot.IntermediateCerts[0]
+	retry.Run(t, func(r *retry.R) {
+		store := s2.caManager.delegate.State()
+		_, storedRoot, err := store.CARootActive(nil)
+		r.Check(err)
+
+		if storedRoot.IntermediateCerts[0] == oldIntermediate {
+			r.Fatal("old intermediate should be gone")
+		}
+	})
 }
 
 func TestConnectCA_ConfigurationSet_RootRotation_Secondary(t *testing.T) {
@@ -668,6 +689,71 @@ func TestConnectCA_ConfigurationSet_RootRotation_Secondary(t *testing.T) {
 		Roots:         rootPool,
 	})
 	require.NoError(t, err)
+}
+
+func TestCAManager_Initialize_Vault_KeepOldRoots_Primary(t *testing.T) {
+	ca.SkipIfVaultNotPresent(t)
+
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
+	t.Parallel()
+
+	testVault := ca.NewTestVaultServer(t)
+	defer testVault.Stop()
+
+	dir1pre, s1pre := testServer(t)
+	defer os.RemoveAll(dir1pre)
+	defer s1pre.Shutdown()
+	codec := rpcClient(t, s1pre)
+	defer codec.Close()
+
+	testrpc.WaitForLeader(t, s1pre.RPC, "dc1")
+
+	// Update the CA config to use Vault - this should force the generation of a new root cert.
+	vaultCAConf := &structs.CAConfiguration{
+		Provider: "vault",
+		Config: map[string]interface{}{
+			"Address":             testVault.Addr,
+			"Token":               testVault.RootToken,
+			"RootPKIPath":         "pki-root/",
+			"IntermediatePKIPath": "pki-intermediate/",
+		},
+	}
+
+	args := &structs.CARequest{
+		Datacenter: "dc1",
+		Config:     vaultCAConf,
+	}
+	var reply interface{}
+
+	require.NoError(t, msgpackrpc.CallWithCodec(codec, "ConnectCA.ConfigurationSet", args, &reply))
+
+	// Should have 2 roots now.
+	_, roots, err := s1pre.fsm.State().CARoots(nil)
+	require.NoError(t, err)
+	require.Len(t, roots, 2)
+
+	// Shutdown s1pre and restart it to trigger the primary CA init.
+	s1pre.Shutdown()
+
+	dir1, s1 := testServerWithConfig(t, func(c *Config) {
+		c.DataDir = s1pre.config.DataDir
+		c.NodeName = s1pre.config.NodeName
+		c.NodeID = s1pre.config.NodeID
+	})
+	defer os.RemoveAll(dir1)
+	defer s1.Shutdown()
+
+	testrpc.WaitForLeader(t, s1.RPC, "dc1")
+
+	// Roots should be unchanged
+	_, rootsAfterRestart, err := s1.fsm.State().CARoots(nil)
+	require.NoError(t, err)
+	require.Len(t, rootsAfterRestart, 2)
+	require.Equal(t, roots[0].ID, rootsAfterRestart[0].ID)
+	require.Equal(t, roots[1].ID, rootsAfterRestart[1].ID)
 }
 
 func TestCAManager_Initialize_Vault_FixesSigningKeyID_Primary(t *testing.T) {

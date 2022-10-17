@@ -1,14 +1,11 @@
 ---
 layout: docs
-page_title: 'Configuration Entry Kind: Mesh'
+page_title: Mesh - Configuration Entry Reference
 description: >-
-  The mesh config entry kind allows for globally defining default
-  configuration across all services mesh proxies.
-  Settings in this config entry apply across all namespaces and federated datacenters.
-  Currently, only one mesh entry is supported.
+  The mesh configuration entry kind defines global default settings like TLS version requirements for proxies inside the service mesh. Use the reference guide to learn about `""mesh""` config entry parameters and how to control communication with services outside of the mesh.
 ---
 
-# Mesh
+# Mesh Configuration Entry
 
 -> **v1.10.0+:** This configuration entry is supported in Consul versions 1.10.0+.
 
@@ -271,22 +268,19 @@ Note that the Kubernetes example does not include a `partition` field. Configura
       children: [
         {
           name: 'Incoming',
-          yaml: false,
           type: 'TLSDirectionConfig: <optional>',
-          description: `TLS configuration for inbound mTLS connections targeting 
+          description: `TLS configuration for inbound mTLS connections targeting
                         the public listener on \`connect-proxy\` and \`terminating-gateway\`
                         proxy kinds.`,
           children: [
             {
               name: 'TLSMinVersion',
-              yaml: false,
               type: 'string: ""',
               description:
                 "Set the default minimum TLS version supported. One of `TLS_AUTO`, `TLSv1_0`, `TLSv1_1`, `TLSv1_2`, or `TLSv1_3`. If unspecified, Envoy v1.22.0 and newer [will default to TLS 1.2 as a min version](https://github.com/envoyproxy/envoy/pull/19330), while older releases of Envoy default to TLS 1.0.",
             },
             {
               name: 'TLSMaxVersion',
-              yaml: false,
               type: 'string: ""',
               description: {
                 hcl:
@@ -297,7 +291,6 @@ Note that the Kubernetes example does not include a `partition` field. Configura
             },
             {
               name: 'CipherSuites',
-              yaml: false,
               type: 'array<string>: <optional>',
               description: `Set the default list of TLS cipher suites
                             to support when negotiating connections using
@@ -315,7 +308,6 @@ Note that the Kubernetes example does not include a `partition` field. Configura
         },
         {
           name: 'Outgoing',
-          yaml: false,
           type: 'TLSDirectionConfig: <optional>',
           description: `TLS configuration for outbound mTLS connections dialing upstreams
                         from \`connect-proxy\` and \`ingress-gateway\`
@@ -323,14 +315,12 @@ Note that the Kubernetes example does not include a `partition` field. Configura
           children: [
             {
               name: 'TLSMinVersion',
-              yaml: false,
               type: 'string: ""',
               description:
                 "Set the default minimum TLS version supported. One of `TLS_AUTO`, `TLSv1_0`, `TLSv1_1`, `TLSv1_2`, or `TLSv1_3`. If unspecified, Envoy v1.22.0 and newer [will default to TLS 1.2 as a min version](https://github.com/envoyproxy/envoy/pull/19330), while older releases of Envoy default to TLS 1.0.",
             },
             {
               name: 'TLSMaxVersion',
-              yaml: false,
               type: 'string: ""',
               description: {
                 hcl:
@@ -341,7 +331,6 @@ Note that the Kubernetes example does not include a `partition` field. Configura
             },
             {
               name: 'CipherSuites',
-              yaml: false,
               type: 'array<string>: <optional>',
               description: `Set the default list of TLS cipher suites
                             to support when negotiating connections using
@@ -356,6 +345,20 @@ Note that the Kubernetes example does not include a `partition` field. Configura
                             Envoy.`,
             },
           ],
+        },
+      ],
+    },
+    {
+      name: 'HTTP',
+      type: 'HTTPConfig: <optional>',
+      description: 'HTTP configuration for the service mesh.',
+      children: [
+        {
+          name: 'SanitizeXForwardedClientCert',
+          type: 'bool: <optional>',
+          description: `If configured to \`true\`, the \`forward_client_cert_details\` option will be set to \`SANITIZE\`
+                        for all Envoy proxies. As a result, Consul will not include the \`x-forwarded-client-cert\` header in the next hop.
+                        If set to \`false\` (default), the XFCC header is propagated to upstream applications.`,
         },
       ],
     },

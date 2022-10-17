@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/consul/agent/structs"
 	"github.com/hashicorp/consul/api"
@@ -31,10 +32,7 @@ func TestTxnEndpoint_Bad_JSON(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/v1/txn", buf)
 	resp := httptest.NewRecorder()
 	_, err := a.srv.Txn(resp, req)
-	err, ok := err.(BadRequestError)
-	if !ok {
-		t.Fatalf("expected bad request error but got %v", err)
-	}
+	require.True(t, isHTTPBadRequest(err), fmt.Sprintf("Expected bad request HTTP error but got %v", err))
 	if !strings.Contains(err.Error(), "Failed to parse") {
 		t.Fatalf("expected conflicting args error")
 	}
@@ -63,11 +61,19 @@ func TestTxnEndpoint_Bad_Size_Item(t *testing.T) {
 		req, _ := http.NewRequest("PUT", "/v1/txn", buf)
 		resp := httptest.NewRecorder()
 		_, err := agent.srv.Txn(resp, req)
-		if err, ok := err.(EntityTooLargeError); !ok && !wantPass {
-			t.Fatalf("expected too large error but got %v", err)
-		}
-		if err != nil && wantPass {
-			t.Fatalf("err: %v", err)
+
+		if wantPass {
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+		} else {
+			if err, ok := err.(HTTPError); ok {
+				if err.StatusCode != 413 {
+					t.Fatalf("expected 413 but got %d", err.StatusCode)
+				}
+			} else {
+				t.Fatalf("excected HTTP error but got %v", err)
+			}
 		}
 	}
 
@@ -138,11 +144,19 @@ func TestTxnEndpoint_Bad_Size_Net(t *testing.T) {
 		req, _ := http.NewRequest("PUT", "/v1/txn", buf)
 		resp := httptest.NewRecorder()
 		_, err := agent.srv.Txn(resp, req)
-		if err, ok := err.(EntityTooLargeError); !ok && !wantPass {
-			t.Fatalf("expected too large error but got %v", err)
-		}
-		if err != nil && wantPass {
-			t.Fatalf("err: %v", err)
+
+		if wantPass {
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+		} else {
+			if err, ok := err.(HTTPError); ok {
+				if err.StatusCode != 413 {
+					t.Fatalf("expected 413 but got %d", err.StatusCode)
+				}
+			} else {
+				t.Fatalf("excected HTTP error but got %v", err)
+			}
 		}
 	}
 
@@ -205,8 +219,13 @@ func TestTxnEndpoint_Bad_Size_Ops(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/v1/txn", buf)
 	resp := httptest.NewRecorder()
 	_, err := a.srv.Txn(resp, req)
-	if err, ok := err.(EntityTooLargeError); !ok {
-		t.Fatalf("expected too large error but got %v", err)
+
+	if err, ok := err.(HTTPError); ok {
+		if err.StatusCode != 413 {
+			t.Fatalf("expected 413 but got %d", err.StatusCode)
+		}
+	} else {
+		t.Fatalf("expected HTTP error but got %v", err)
 	}
 }
 
@@ -566,6 +585,7 @@ func TestTxnEndpoint_UpdateCheck(t *testing.T) {
 				"Output": "success",
 				"ServiceID": "",
 				"ServiceName": "",
+				"ExposedPort": 5678,
 				"Definition": {
 					"IntervalDuration": "15s",
 					"TimeoutDuration": "15s",
@@ -581,12 +601,8 @@ func TestTxnEndpoint_UpdateCheck(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/v1/txn", buf)
 	resp := httptest.NewRecorder()
 	obj, err := a.srv.Txn(resp, req)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if resp.Code != 200 {
-		t.Fatalf("expected 200, got %d", resp.Code)
-	}
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.Code, resp.Body)
 
 	txnResp, ok := obj.(structs.TxnResponse)
 	if !ok {
@@ -643,18 +659,133 @@ func TestTxnEndpoint_UpdateCheck(t *testing.T) {
 			},
 			&structs.TxnResult{
 				Check: &structs.HealthCheck{
-					Node:    a.config.NodeName,
-					CheckID: "nodecheck",
-					Name:    "Node http check",
-					Status:  api.HealthPassing,
-					Notes:   "Http based health check",
-					Output:  "success",
+					Node:        a.config.NodeName,
+					CheckID:     "nodecheck",
+					Name:        "Node http check",
+					Status:      api.HealthPassing,
+					Notes:       "Http based health check",
+					Output:      "success",
+					ExposedPort: 5678,
 					Definition: structs.HealthCheckDefinition{
 						Interval:                       15 * time.Second,
 						Timeout:                        15 * time.Second,
 						DeregisterCriticalServiceAfter: 30 * time.Minute,
 						HTTP:                           "http://localhost:9000",
 						TLSSkipVerify:                  false,
+					},
+					RaftIndex: structs.RaftIndex{
+						CreateIndex: index,
+						ModifyIndex: index,
+					},
+					EnterpriseMeta: *structs.DefaultEnterpriseMetaInDefaultPartition(),
+				},
+			},
+		},
+	}
+	assert.Equal(t, expected, txnResp)
+}
+
+func TestTxnEndpoint_NodeService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
+	t.Parallel()
+	a := NewTestAgent(t, "")
+	defer a.Shutdown()
+	testrpc.WaitForTestAgent(t, a.RPC, "dc1")
+
+	// Make sure the fields of a check are handled correctly when both creating and
+	// updating, and test both sets of duration fields to ensure backwards compatibility.
+	buf := bytes.NewBuffer([]byte(fmt.Sprintf(`
+[
+	{
+		"Service": {
+		  	"Verb": "set",
+		  	"Node": "%s",
+		  	"Service": {
+				"Service": "test",
+				"Port": 4444
+		  	}
+		}
+	},
+	{
+		"Service": {
+			"Verb": "set",
+			"Node": "%s",
+			"Service": {
+				"Service": "test-sidecar-proxy",
+				"Port": 20000,
+				"Kind": "connect-proxy",
+				"Proxy": {
+				  	"DestinationServiceName": "test",
+				  	"DestinationServiceID": "test",
+				  	"LocalServiceAddress": "127.0.0.1",
+				  	"LocalServicePort": 4444,
+				  	"upstreams": [
+						{
+							"DestinationName": "fake-backend",
+							"LocalBindPort": 25001
+						}
+				  	]
+				}
+			}
+		}
+	}
+]
+`, a.config.NodeName, a.config.NodeName)))
+	req, _ := http.NewRequest("PUT", "/v1/txn", buf)
+	resp := httptest.NewRecorder()
+	obj, err := a.srv.Txn(resp, req)
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.Code)
+
+	txnResp, ok := obj.(structs.TxnResponse)
+	if !ok {
+		t.Fatalf("bad type: %T", obj)
+	}
+	require.Equal(t, 2, len(txnResp.Results))
+
+	index := txnResp.Results[0].Service.ModifyIndex
+	expected := structs.TxnResponse{
+		Results: structs.TxnResults{
+			&structs.TxnResult{
+				Service: &structs.NodeService{
+					Service: "test",
+					ID:      "test",
+					Port:    4444,
+					Weights: &structs.Weights{
+						Passing: 1,
+						Warning: 1,
+					},
+					RaftIndex: structs.RaftIndex{
+						CreateIndex: index,
+						ModifyIndex: index,
+					},
+					EnterpriseMeta: *structs.DefaultEnterpriseMetaInDefaultPartition(),
+				},
+			},
+			&structs.TxnResult{
+				Service: &structs.NodeService{
+					Service: "test-sidecar-proxy",
+					ID:      "test-sidecar-proxy",
+					Port:    20000,
+					Kind:    "connect-proxy",
+					Weights: &structs.Weights{
+						Passing: 1,
+						Warning: 1,
+					},
+					Proxy: structs.ConnectProxyConfig{
+						DestinationServiceName: "test",
+						DestinationServiceID:   "test",
+						LocalServiceAddress:    "127.0.0.1",
+						LocalServicePort:       4444,
+					},
+					TaggedAddresses: map[string]structs.ServiceAddress{
+						"consul-virtual": {
+							Address: "240.0.0.1",
+							Port:    20000,
+						},
 					},
 					RaftIndex: structs.RaftIndex{
 						CreateIndex: index,

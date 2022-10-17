@@ -215,14 +215,19 @@ type IssuedCert struct {
 	PrivateKeyPEM string `json:",omitempty"`
 
 	// Service is the name of the service for which the cert was issued.
+	Service string `json:",omitempty"`
 	// ServiceURI is the cert URI value.
-	Service    string `json:",omitempty"`
 	ServiceURI string `json:",omitempty"`
 
 	// Agent is the name of the node for which the cert was issued.
+	Agent string `json:",omitempty"`
 	// AgentURI is the cert URI value.
-	Agent    string `json:",omitempty"`
 	AgentURI string `json:",omitempty"`
+
+	// Kind is the kind of service for which the cert was issued.
+	Kind ServiceKind `json:",omitempty"`
+	// KindURI is the cert URI value.
+	KindURI string `json:",omitempty"`
 
 	// ValidAfter and ValidBefore are the validity periods for the
 	// certificate.
@@ -373,9 +378,12 @@ func (c *CAConfiguration) GetCommonConfig() (*CommonCAProviderConfig, error) {
 }
 
 type CommonCAProviderConfig struct {
-	LeafCertTTL         time.Duration
+	LeafCertTTL time.Duration
+	RootCertTTL time.Duration
+
+	// IntermediateCertTTL is only valid in the primary datacenter, and determines
+	// the duration that any signed intermediates are valid for.
 	IntermediateCertTTL time.Duration
-	RootCertTTL         time.Duration
 
 	SkipValidate bool
 
@@ -517,11 +525,13 @@ type CAConsulProviderState struct {
 type VaultCAProviderConfig struct {
 	CommonCAProviderConfig `mapstructure:",squash"`
 
-	Address             string
-	Token               string
-	RootPKIPath         string
-	IntermediatePKIPath string
-	Namespace           string
+	Address                  string
+	Token                    string
+	RootPKIPath              string
+	RootPKINamespace         string
+	IntermediatePKIPath      string
+	IntermediatePKINamespace string
+	Namespace                string
 
 	CAFile        string
 	CAPath        string

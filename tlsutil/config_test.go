@@ -1465,31 +1465,94 @@ func TestConfigurator_AuthorizeInternalRPCServerConn(t *testing.T) {
 	})
 }
 
-func TestConfigurator_GRPCTLSConfigured(t *testing.T) {
-	t.Run("certificate manually configured", func(t *testing.T) {
-		c := makeConfigurator(t, Config{
-			GRPC: ProtocolConfig{
-				CertFile: "../test/hostname/Alice.crt",
-				KeyFile:  "../test/hostname/Alice.key",
+func TestConfigurator_GRPCServerUseTLS(t *testing.T) {
+	type testCase struct {
+		config       Config
+		useAutoTLS   bool
+		httpsEnabled bool
+		expectTLS    bool
+	}
+
+	run := func(t *testing.T, tc testCase) {
+		c := makeConfigurator(t, tc.config)
+		if tc.useAutoTLS {
+			cert := loadFile(t, "../test/hostname/Bob.crt")
+			key := loadFile(t, "../test/hostname/Bob.key")
+			require.NoError(t, c.UpdateAutoTLSCert(cert, key))
+		}
+
+		require.Equal(t, tc.expectTLS, c.GRPCServerUseTLS(tc.httpsEnabled))
+	}
+
+	tt := map[string]testCase{
+		"no certificate": {
+			config:    Config{},
+			expectTLS: false,
+		},
+		"certificate manually configured": {
+			config: Config{
+				GRPC: ProtocolConfig{
+					CertFile: "../test/hostname/Alice.crt",
+					KeyFile:  "../test/hostname/Alice.key",
+				},
 			},
+			expectTLS: true,
+		},
+		"AutoTLS (default)": {
+			config:     Config{},
+			useAutoTLS: true,
+			expectTLS:  false,
+		},
+		"AutoTLS w/ UseAutoCert disabled": {
+			config: Config{
+				GRPC: ProtocolConfig{
+					UseAutoCert: false,
+				},
+			},
+			useAutoTLS: true,
+			expectTLS:  false,
+		},
+		"AutoTLS w/ UseAutoCert enabled": {
+			config: Config{
+				GRPC: ProtocolConfig{
+					UseAutoCert: true,
+				},
+			},
+			useAutoTLS: true,
+			expectTLS:  true,
+		},
+		"pre 1.12 compat - legacy config and https enabled enables grpc tls": {
+			config: Config{
+				SpecifiedTLSStanza: false,
+			},
+			httpsEnabled: true,
+			expectTLS:    true,
+		},
+		"pre 1.12 compat - new listener config with https enabled does not enable grpc tls": {
+			config: Config{
+				HTTPS: ProtocolConfig{
+					CertFile: "../test/hostname/Alice.crt",
+					KeyFile:  "../test/hostname/Alice.key",
+				},
+				SpecifiedTLSStanza: true,
+			},
+			httpsEnabled: true,
+			expectTLS:    false,
+		},
+		"pre 1.12 compat - legacy config and https disabled does not enable grpc tls": {
+			config: Config{
+				SpecifiedTLSStanza: false,
+			},
+			httpsEnabled: false,
+			expectTLS:    false,
+		},
+	}
+
+	for name, tc := range tt {
+		t.Run(name, func(t *testing.T) {
+			run(t, tc)
 		})
-		require.True(t, c.GRPCTLSConfigured())
-	})
-
-	t.Run("AutoTLS", func(t *testing.T) {
-		c := makeConfigurator(t, Config{})
-
-		bobCert := loadFile(t, "../test/hostname/Bob.crt")
-		bobKey := loadFile(t, "../test/hostname/Bob.key")
-		require.NoError(t, c.UpdateAutoTLSCert(bobCert, bobKey))
-
-		require.True(t, c.GRPCTLSConfigured())
-	})
-
-	t.Run("no certificate", func(t *testing.T) {
-		c := makeConfigurator(t, Config{})
-		require.False(t, c.GRPCTLSConfigured())
-	})
+	}
 }
 
 type fakeTLSConn struct {

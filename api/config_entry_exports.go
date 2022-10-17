@@ -16,7 +16,7 @@ type ExportedServicesConfigEntry struct {
 
 	// Services is a list of services to be exported and the list of partitions
 	// to expose them to.
-	Services []ExportedService
+	Services []ExportedService `json:",omitempty"`
 
 	Meta map[string]string `json:",omitempty"`
 
@@ -40,7 +40,7 @@ type ExportedService struct {
 	Namespace string `json:",omitempty"`
 
 	// Consumers is a list of downstream consumers of the service to be exported.
-	Consumers []ServiceConsumer
+	Consumers []ServiceConsumer `json:",omitempty"`
 }
 
 // ServiceConsumer represents a downstream consumer of the service to be exported.
@@ -48,16 +48,16 @@ type ExportedService struct {
 type ServiceConsumer struct {
 	// Partition is the admin partition to export the service to.
 	// Deprecated: PeerName should be used for both remote peers and local partitions.
-	Partition string
+	Partition string `json:",omitempty"`
 
 	// PeerName is the name of the peer to export the service to.
-	PeerName string
+	PeerName string `json:",omitempty" alias:"peer_name"`
 }
 
 func (e *ExportedServicesConfigEntry) GetKind() string            { return ExportedServices }
 func (e *ExportedServicesConfigEntry) GetName() string            { return e.Name }
 func (e *ExportedServicesConfigEntry) GetPartition() string       { return e.Name }
-func (e *ExportedServicesConfigEntry) GetNamespace() string       { return IntentionDefaultNamespace }
+func (e *ExportedServicesConfigEntry) GetNamespace() string       { return "" }
 func (e *ExportedServicesConfigEntry) GetMeta() map[string]string { return e.Meta }
 func (e *ExportedServicesConfigEntry) GetCreateIndex() uint64     { return e.CreateIndex }
 func (e *ExportedServicesConfigEntry) GetModifyIndex() uint64     { return e.ModifyIndex }

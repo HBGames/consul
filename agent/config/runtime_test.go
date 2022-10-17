@@ -3051,6 +3051,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 		expected: func(rt *RuntimeConfig) {
 			rt.DataDir = dataDir
 			rt.TLS.InternalRPC.VerifyIncoming = true
+			rt.TLS.SpecifiedTLSStanza = true
 			rt.AutoEncryptAllowTLS = true
 			rt.ConnectEnabled = true
 
@@ -3082,6 +3083,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 			rt.ConnectEnabled = true
 
 			rt.TLS.InternalRPC.VerifyIncoming = true
+			rt.TLS.SpecifiedTLSStanza = true
 			rt.TLS.GRPC.VerifyIncoming = true
 			rt.TLS.HTTPS.VerifyIncoming = true
 
@@ -3112,6 +3114,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 			rt.AutoEncryptAllowTLS = true
 			rt.ConnectEnabled = true
 			rt.TLS.InternalRPC.VerifyIncoming = true
+			rt.TLS.SpecifiedTLSStanza = true
 
 			// server things
 			rt.ServerMode = true
@@ -4509,7 +4512,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 		},
 	})
 
-	///////////////////////////////////
+	// /////////////////////////////////
 	// Defaults sanity checks
 
 	run(t, testCase{
@@ -4532,7 +4535,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 		},
 	})
 
-	///////////////////////////////////
+	// /////////////////////////////////
 	// Auto Config related tests
 	run(t, testCase{
 		desc: "auto config and auto encrypt error",
@@ -4767,6 +4770,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 			rt.DataDir = dataDir
 			rt.TLS.InternalRPC.VerifyOutgoing = true
 			rt.TLS.AutoTLS = true
+			rt.TLS.SpecifiedTLSStanza = true
 		},
 	})
 
@@ -5025,6 +5029,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 			rt.ServerMode = true
 			rt.SkipLeaveOnInt = true
 			rt.TLS.InternalRPC.CertFile = "foo"
+			rt.TLS.SpecifiedTLSStanza = true
 			rt.RPCConfig.EnableStreaming = true
 		},
 	})
@@ -5462,6 +5467,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 
 			rt.TLS.Domain = "consul."
 			rt.TLS.NodeName = "thehostname"
+			rt.TLS.SpecifiedTLSStanza = true
 
 			rt.TLS.InternalRPC.CAFile = "internal_rpc_ca_file"
 			rt.TLS.InternalRPC.CAPath = "default_ca_path"
@@ -5510,13 +5516,79 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 
 			rt.TLS.Domain = "consul."
 			rt.TLS.NodeName = "thehostname"
+			rt.TLS.SpecifiedTLSStanza = true
 
 			rt.TLS.InternalRPC.VerifyServerHostname = true
 			rt.TLS.InternalRPC.VerifyOutgoing = true
 		},
 	})
 	run(t, testCase{
-		desc: "tls.grpc without ports.https",
+		desc: "tls.grpc.use_auto_cert defaults to false",
+		args: []string{
+			`-data-dir=` + dataDir,
+		},
+		json: []string{`
+			{
+				"tls": {
+					"grpc": {}
+				}
+			}
+		`},
+		hcl: []string{`
+			tls {
+				grpc {}
+			}
+		`},
+		expected: func(rt *RuntimeConfig) {
+			rt.DataDir = dataDir
+			rt.TLS.Domain = "consul."
+			rt.TLS.NodeName = "thehostname"
+			rt.TLS.GRPC.UseAutoCert = false
+			rt.TLS.SpecifiedTLSStanza = false // TLS stanza was defined but is empty.
+		},
+	})
+	run(t, testCase{
+		desc: "tls.grpc.use_auto_cert defaults to false (II)",
+		args: []string{
+			`-data-dir=` + dataDir,
+		},
+		json: []string{`
+			{
+				"tls": {}
+			}
+		`},
+		hcl: []string{`
+			tls {
+			}
+		`},
+		expected: func(rt *RuntimeConfig) {
+			rt.DataDir = dataDir
+			rt.TLS.Domain = "consul."
+			rt.TLS.NodeName = "thehostname"
+			rt.TLS.GRPC.UseAutoCert = false
+			rt.TLS.SpecifiedTLSStanza = false // TLS stanza was defined but is empty.
+		},
+	})
+	run(t, testCase{
+		desc: "tls.grpc.use_auto_cert defaults to false (III)",
+		args: []string{
+			`-data-dir=` + dataDir,
+		},
+		json: []string{`
+			{
+			}
+		`},
+		hcl: []string{`
+		`},
+		expected: func(rt *RuntimeConfig) {
+			rt.DataDir = dataDir
+			rt.TLS.Domain = "consul."
+			rt.TLS.NodeName = "thehostname"
+			rt.TLS.GRPC.UseAutoCert = false
+		},
+	})
+	run(t, testCase{
+		desc: "tls.grpc.use_auto_cert enabled when true",
 		args: []string{
 			`-data-dir=` + dataDir,
 		},
@@ -5524,7 +5596,7 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 			{
 				"tls": {
 					"grpc": {
-						"cert_file": "cert-1234"
+						"use_auto_cert": true
 					}
 				}
 			}
@@ -5532,20 +5604,75 @@ func TestLoad_IntegrationWithFlags(t *testing.T) {
 		hcl: []string{`
 			tls {
 				grpc {
-					cert_file = "cert-1234"
+					use_auto_cert = true
 				}
 			}
 		`},
 		expected: func(rt *RuntimeConfig) {
 			rt.DataDir = dataDir
-
 			rt.TLS.Domain = "consul."
 			rt.TLS.NodeName = "thehostname"
-
-			rt.TLS.GRPC.CertFile = "cert-1234"
+			rt.TLS.GRPC.UseAutoCert = true
+			rt.TLS.SpecifiedTLSStanza = true
+		},
+	})
+	run(t, testCase{
+		desc: "tls.grpc.use_auto_cert disabled when false",
+		args: []string{
+			`-data-dir=` + dataDir,
+		},
+		json: []string{`
+			{
+				"tls": {
+					"grpc": {
+						"use_auto_cert": false
+					}
+				}
+			}
+		`},
+		hcl: []string{`
+			tls {
+				grpc {
+					use_auto_cert = false
+				}
+			}
+		`},
+		expected: func(rt *RuntimeConfig) {
+			rt.DataDir = dataDir
+			rt.TLS.Domain = "consul."
+			rt.TLS.NodeName = "thehostname"
+			rt.TLS.GRPC.UseAutoCert = false
+			rt.TLS.SpecifiedTLSStanza = true
+		},
+	})
+	run(t, testCase{
+		desc: "SpecifiedTLSStanza is not set if tls stanza was not defined",
+		args: []string{
+			`-data-dir=` + dataDir,
+		},
+		json: []string{`
+			{
+				"cert_file": "foo",
+				"key_file": "bar"
+			}
+		`},
+		hcl: []string{`
+			cert_file = "foo"
+			key_file = "bar"
+		`},
+		expected: func(rt *RuntimeConfig) {
+			rt.DataDir = dataDir
+			rt.TLS.SpecifiedTLSStanza = false
+			rt.TLS.HTTPS.CertFile = "foo"
+			rt.TLS.HTTPS.KeyFile = "bar"
+			rt.TLS.InternalRPC.CertFile = "foo"
+			rt.TLS.InternalRPC.KeyFile = "bar"
+			rt.TLS.GRPC.CertFile = "foo"
+			rt.TLS.GRPC.KeyFile = "bar"
 		},
 		expectedWarnings: []string{
-			"tls.grpc was provided but TLS will NOT be enabled on the gRPC listener without an HTTPS listener configured (e.g. via ports.https)",
+			"The 'cert_file' field is deprecated. Use the 'tls.defaults.cert_file' field instead.",
+			"The 'key_file' field is deprecated. Use the 'tls.defaults.key_file' field instead.",
 		},
 	})
 }
@@ -5569,9 +5696,10 @@ func (tc testCase) run(format string, dataDir string) func(t *testing.T) {
 
 		for i, data := range tc.source(format) {
 			opts.sources = append(opts.sources, FileSource{
-				Name:   fmt.Sprintf("src-%d.%s", i, format),
-				Format: format,
-				Data:   data,
+				Name:     fmt.Sprintf("src-%d.%s", i, format),
+				Format:   format,
+				Data:     data,
+				FromUser: true,
 			})
 		}
 
@@ -5660,6 +5788,8 @@ func TestLoad_FullConfig(t *testing.T) {
 		Revision:          "JNtPSav3",
 		Version:           "R909Hblt",
 		VersionPrerelease: "ZT1JOQLn",
+		VersionMetadata:   "GtTCa13",
+		BuildDate:         time.Date(2019, 11, 20, 5, 0, 0, 0, time.UTC),
 
 		// consul configuration
 		ConsulCoordinateUpdateBatchSize:  128,
@@ -5953,6 +6083,7 @@ func TestLoad_FullConfig(t *testing.T) {
 		NodeMeta:                map[string]string{"5mgGQMBk": "mJLtVMSG", "A7ynFMJB": "0Nx6RGab"},
 		NodeName:                "otlLxGaI",
 		ReadReplica:             true,
+		PeeringEnabled:          true,
 		PidFile:                 "43xN80Km",
 		PrimaryGateways:         []string{"aej8eeZo", "roh2KahS"},
 		PrimaryGatewaysInterval: 18866 * time.Second,
@@ -6301,10 +6432,10 @@ func TestLoad_FullConfig(t *testing.T) {
 			CirconusCheckTags:                  "prvO4uBl",
 			CirconusSubmissionInterval:         "DolzaflP",
 			CirconusSubmissionURL:              "gTcbS93G",
-			DisableCompatOneNine:               true,
 			DisableHostname:                    true,
 			DogstatsdAddr:                      "0wSndumK",
 			DogstatsdTags:                      []string{"3N81zSUB", "Xtj8AnXZ"},
+			RetryFailedConfiguration:           true,
 			FilterDefault:                      true,
 			AllowedPrefixes:                    []string{"oJotS8XJ"},
 			BlockedPrefixes:                    []string{"cazlEhGn", "ftO6DySn.rpc.server.call"},
@@ -6337,6 +6468,7 @@ func TestLoad_FullConfig(t *testing.T) {
 				TLSMinVersion:  types.TLSv1_0,
 				CipherSuites:   []types.TLSCipherSuite{types.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, types.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA},
 				VerifyOutgoing: false,
+				UseAutoCert:    true,
 			},
 			HTTPS: tlsutil.ProtocolConfig{
 				VerifyIncoming: true,
@@ -6351,6 +6483,7 @@ func TestLoad_FullConfig(t *testing.T) {
 			ServerName:              "Oerr9n1G",
 			Domain:                  "7W1xXSqd",
 			EnableAgentTLSForChecks: true,
+			SpecifiedTLSStanza:      true,
 		},
 		TaggedAddresses: map[string]string{
 			"7MYgHrYH": "dALJAhLD",
@@ -6445,7 +6578,8 @@ func TestLoad_FullConfig(t *testing.T) {
 				ConfigFiles: []string{"testdata/full-config." + format},
 				HCL:         []string{fmt.Sprintf(`data_dir = "%s"`, dataDir)},
 			}
-			opts.Overrides = append(opts.Overrides, versionSource("JNtPSav3", "R909Hblt", "ZT1JOQLn"))
+			opts.Overrides = append(opts.Overrides, versionSource("JNtPSav3", "R909Hblt", "ZT1JOQLn", "GtTCa13",
+				time.Date(2019, 11, 20, 5, 0, 0, 0, time.UTC)))
 			r, err := Load(opts)
 			require.NoError(t, err)
 			prototest.AssertDeepEqual(t, expected, r.RuntimeConfig)
@@ -6639,6 +6773,7 @@ func parseCIDR(t *testing.T, cidr string) *net.IPNet {
 func TestRuntimeConfig_Sanitize(t *testing.T) {
 	rt := RuntimeConfig{
 		BindAddr:             &net.IPAddr{IP: net.ParseIP("127.0.0.1")},
+		BuildDate:            time.Date(2019, 11, 20, 5, 0, 0, 0, time.UTC),
 		CheckOutputMaxSize:   checks.DefaultBufSize,
 		SerfAdvertiseAddrLAN: &net.TCPAddr{IP: net.ParseIP("1.2.3.4"), Port: 5678},
 		DNSAddrs: []net.Addr{

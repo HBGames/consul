@@ -189,9 +189,10 @@ func newBuilder(opts LoadOpts) (*builder, error) {
 	b.Tail = append(b.Tail, LiteralSource{Name: "flags.values", Config: values})
 	for i, s := range opts.HCL {
 		b.Tail = append(b.Tail, FileSource{
-			Name:   fmt.Sprintf("flags-%d.hcl", i),
-			Format: "hcl",
-			Data:   s,
+			Name:     fmt.Sprintf("flags-%d.hcl", i),
+			Format:   "hcl",
+			Data:     s,
+			FromUser: true,
 		})
 	}
 	b.Tail = append(b.Tail, NonUserSource(), DefaultConsulSource(), OverrideEnterpriseSource(), defaultVersionSource())
@@ -282,7 +283,7 @@ func newSourceFromFile(path string, format string) (Source, error) {
 	if format == "" {
 		format = formatFromFileExtension(path)
 	}
-	return FileSource{Name: path, Data: string(data), Format: format}, nil
+	return FileSource{Name: path, Data: string(data), Format: format, FromUser: true}, nil
 }
 
 // shouldParse file determines whether the file to be read is of a supported extension
@@ -697,16 +698,18 @@ func (b *builder) build() (rt RuntimeConfig, err error) {
 			"intermediate_cert_ttl": "IntermediateCertTTL",
 
 			// Vault CA config
-			"address":               "Address",
-			"token":                 "Token",
-			"root_pki_path":         "RootPKIPath",
-			"intermediate_pki_path": "IntermediatePKIPath",
-			"ca_file":               "CAFile",
-			"ca_path":               "CAPath",
-			"cert_file":             "CertFile",
-			"key_file":              "KeyFile",
-			"tls_server_name":       "TLSServerName",
-			"tls_skip_verify":       "TLSSkipVerify",
+			"address":                    "Address",
+			"token":                      "Token",
+			"root_pki_path":              "RootPKIPath",
+			"root_pki_namespace":         "RootPKINamespace",
+			"intermediate_pki_path":      "IntermediatePKIPath",
+			"intermediate_pki_namespace": "IntermediatePKINamespace",
+			"ca_file":                    "CAFile",
+			"ca_path":                    "CAPath",
+			"cert_file":                  "CertFile",
+			"key_file":                   "KeyFile",
+			"tls_server_name":            "TLSServerName",
+			"tls_skip_verify":            "TLSSkipVerify",
 
 			// AWS CA config
 			"existing_arn":   "ExistingARN",
@@ -801,6 +804,9 @@ func (b *builder) build() (rt RuntimeConfig, err error) {
 		SyncCoordinateRateTarget:   float64Val(c.SyncCoordinateRateTarget),
 		Version:                    stringVal(c.Version),
 		VersionPrerelease:          stringVal(c.VersionPrerelease),
+		VersionMetadata:            stringVal(c.VersionMetadata),
+		// What is a sensible default for BuildDate?
+		BuildDate: timeValWithDefault(c.BuildDate, time.Date(1970, 1, 00, 00, 00, 01, 0, time.UTC)),
 
 		// consul configuration
 		ConsulCoordinateUpdateBatchSize:  intVal(c.Consul.Coordinate.UpdateBatchSize),
@@ -910,10 +916,10 @@ func (b *builder) build() (rt RuntimeConfig, err error) {
 			CirconusCheckTags:                  stringVal(c.Telemetry.CirconusCheckTags),
 			CirconusSubmissionInterval:         stringVal(c.Telemetry.CirconusSubmissionInterval),
 			CirconusSubmissionURL:              stringVal(c.Telemetry.CirconusSubmissionURL),
-			DisableCompatOneNine:               boolValWithDefault(c.Telemetry.DisableCompatOneNine, true),
 			DisableHostname:                    boolVal(c.Telemetry.DisableHostname),
 			DogstatsdAddr:                      stringVal(c.Telemetry.DogstatsdAddr),
 			DogstatsdTags:                      c.Telemetry.DogstatsdTags,
+			RetryFailedConfiguration:           boolVal(c.Telemetry.RetryFailedConfiguration),
 			FilterDefault:                      boolVal(c.Telemetry.FilterDefault),
 			AllowedPrefixes:                    telemetryAllowedPrefixes,
 			BlockedPrefixes:                    telemetryBlockedPrefixes,
@@ -1009,6 +1015,7 @@ func (b *builder) build() (rt RuntimeConfig, err error) {
 		NodeMeta:                         c.NodeMeta,
 		NodeName:                         b.nodeName(c.NodeName),
 		ReadReplica:                      boolVal(c.ReadReplica),
+		PeeringEnabled:                   boolVal(c.Peering.Enabled),
 		PidFile:                          stringVal(c.PidFile),
 		PrimaryDatacenter:                primaryDatacenter,
 		PrimaryGateways:                  b.expandAllOptionalAddrs("primary_gateways", c.PrimaryGateways),
@@ -1697,6 +1704,7 @@ func (b *builder) upstreamsVal(v []Upstream) structs.Upstreams {
 			DestinationType:      stringVal(u.DestinationType),
 			DestinationNamespace: stringVal(u.DestinationNamespace),
 			DestinationPartition: stringVal(u.DestinationPartition),
+			DestinationPeer:      stringVal(u.DestinationPeer),
 			DestinationName:      stringVal(u.DestinationName),
 			Datacenter:           stringVal(u.Datacenter),
 			LocalBindAddress:     stringVal(u.LocalBindAddress),
@@ -1937,6 +1945,13 @@ func stringValWithDefault(v *string, defaultVal string) string {
 func stringVal(v *string) string {
 	if v == nil {
 		return ""
+	}
+	return *v
+}
+
+func timeValWithDefault(v *time.Time, defaultVal time.Time) time.Time {
+	if v == nil {
+		return defaultVal
 	}
 	return *v
 }
@@ -2503,6 +2518,12 @@ func validateAbsoluteURLPath(p string) error {
 func (b *builder) buildTLSConfig(rt RuntimeConfig, t TLS) (tlsutil.Config, error) {
 	var c tlsutil.Config
 
+	// This flag indicates whether any of the per-listener configuration was set.
+	// The flag was populated earlier when applying deprecated options.
+	if t.SpecifiedTLSStanza != nil {
+		c.SpecifiedTLSStanza = *t.SpecifiedTLSStanza
+	}
+
 	// Consul makes no outgoing connections to the public gRPC port (internal gRPC
 	// traffic goes through the multiplexed internal RPC port) so return an error
 	// rather than let the user think this setting is going to do anything useful.
@@ -2516,10 +2537,9 @@ func (b *builder) buildTLSConfig(rt RuntimeConfig, t TLS) (tlsutil.Config, error
 		return c, errors.New("verify_server_hostname is only valid in the tls.internal_rpc stanza")
 	}
 
-	// TLS is only enabled on the gRPC listener if there's an HTTPS port configured
-	// for historic and backwards-compatibility reasons.
-	if rt.HTTPSPort <= 0 && (t.GRPC != TLSProtocolConfig{}) {
-		b.warn("tls.grpc was provided but TLS will NOT be enabled on the gRPC listener without an HTTPS listener configured (e.g. via ports.https)")
+	// And UseAutoCert right now only applies to external gRPC interface.
+	if t.Defaults.UseAutoCert != nil || t.HTTPS.UseAutoCert != nil || t.InternalRPC.UseAutoCert != nil {
+		return c, errors.New("use_auto_cert is only valid in the tls.grpc stanza")
 	}
 
 	defaultTLSMinVersion := b.tlsVersion("tls.defaults.tls_min_version", t.Defaults.TLSMinVersion)
@@ -2576,6 +2596,7 @@ func (b *builder) buildTLSConfig(rt RuntimeConfig, t TLS) (tlsutil.Config, error
 
 	mapCommon("https", t.HTTPS, &c.HTTPS)
 	mapCommon("grpc", t.GRPC, &c.GRPC)
+	c.GRPC.UseAutoCert = boolValWithDefault(t.GRPC.UseAutoCert, false)
 
 	c.ServerName = rt.ServerName
 	c.NodeName = rt.NodeName

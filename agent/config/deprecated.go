@@ -70,7 +70,7 @@ type DeprecatedConfig struct {
 	TLSPreferServerCipherSuites *bool `mapstructure:"tls_prefer_server_cipher_suites"`
 }
 
-func applyDeprecatedConfig(d *decodeTarget) (Config, []string) {
+func applyDeprecatedConfig(d *decodeTarget, fromUser bool) (Config, []string) {
 	dep := d.DeprecatedConfig
 	var warns []string
 
@@ -172,17 +172,31 @@ func applyDeprecatedConfig(d *decodeTarget) (Config, []string) {
 		warns = append(warns, deprecationWarning("acl_enable_key_list_policy", "acl.enable_key_list_policy"))
 	}
 
-	warns = append(warns, applyDeprecatedTLSConfig(dep, &d.Config)...)
+	warns = append(warns, applyDeprecatedTLSConfig(dep, &d.Config, fromUser)...)
 
 	return d.Config, warns
 }
 
-func applyDeprecatedTLSConfig(dep DeprecatedConfig, cfg *Config) []string {
+func applyDeprecatedTLSConfig(dep DeprecatedConfig, cfg *Config, fromUser bool) []string {
 	var warns []string
 
-	defaults := &cfg.TLS.Defaults
-	internalRPC := &cfg.TLS.InternalRPC
-	https := &cfg.TLS.HTTPS
+	tls := &cfg.TLS
+
+	// If the TLS stanza was specified by the user then we set a flag to indicate that.
+	// This check MUST happen before applying the deprecated options below, or else
+	// the tls struct will never be empty.
+	//
+	// This check was added exclusively to the 1.13 patch series for compatibility with
+	// Consul 1.11 style TLS configuration. Consul 1.14 does not require it since 1.12
+	// is the earliest major version supported once 1.14 is released.
+	if fromUser && !tls.ContainsDefaults() {
+		tls.SpecifiedTLSStanza = pBool(true)
+	}
+
+	defaults := &tls.Defaults
+	internalRPC := &tls.InternalRPC
+	https := &tls.HTTPS
+	grpc := &tls.GRPC
 
 	if v := dep.CAFile; v != nil {
 		if defaults.CAFile == nil {
@@ -239,6 +253,16 @@ func applyDeprecatedTLSConfig(dep DeprecatedConfig, cfg *Config) []string {
 		if defaults.VerifyIncoming == nil {
 			defaults.VerifyIncoming = v
 		}
+
+		// Prior to Consul 1.12 it was not possible to enable client certificate
+		// verification on the gRPC port. We must override GRPC.VerifyIncoming to
+		// prevent it from inheriting Defaults.VerifyIncoming when we've mapped the
+		// deprecated top-level verify_incoming field.
+		if grpc.VerifyIncoming == nil {
+			grpc.VerifyIncoming = pBool(false)
+			tls.GRPCModifiedByDeprecatedConfig = &struct{}{}
+		}
+
 		warns = append(warns, deprecationWarning("verify_incoming", "tls.defaults.verify_incoming"))
 	}
 

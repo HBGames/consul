@@ -1,10 +1,14 @@
 package structs
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/miekg/dns"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/mitchellh/hashstructure"
@@ -61,7 +65,7 @@ type ConfigEntry interface {
 
 	// CanRead and CanWrite return whether or not the given Authorizer
 	// has permission to read or write to the config entry, respectively.
-	// TODO(acl-error-enhancements) This should be ACLResolveResult or similar but we have to wait until we move things to the acl package
+	// TODO(acl-error-enhancements) This should be resolver.Result or similar but we have to wait until we move things to the acl package
 	CanRead(acl.Authorizer) error
 	CanWrite(acl.Authorizer) error
 
@@ -94,15 +98,19 @@ type WarningConfigEntry interface {
 // ServiceConfiguration is the top-level struct for the configuration of a service
 // across the entire cluster.
 type ServiceConfigEntry struct {
-	Kind             string
-	Name             string
-	Protocol         string
-	Mode             ProxyMode              `json:",omitempty"`
-	TransparentProxy TransparentProxyConfig `json:",omitempty" alias:"transparent_proxy"`
-	MeshGateway      MeshGatewayConfig      `json:",omitempty" alias:"mesh_gateway"`
-	Expose           ExposeConfig           `json:",omitempty"`
-	ExternalSNI      string                 `json:",omitempty" alias:"external_sni"`
-	UpstreamConfig   *UpstreamConfiguration `json:",omitempty" alias:"upstream_config"`
+	Kind                  string
+	Name                  string
+	Protocol              string
+	Mode                  ProxyMode              `json:",omitempty"`
+	TransparentProxy      TransparentProxyConfig `json:",omitempty" alias:"transparent_proxy"`
+	MeshGateway           MeshGatewayConfig      `json:",omitempty" alias:"mesh_gateway"`
+	Expose                ExposeConfig           `json:",omitempty"`
+	ExternalSNI           string                 `json:",omitempty" alias:"external_sni"`
+	UpstreamConfig        *UpstreamConfiguration `json:",omitempty" alias:"upstream_config"`
+	Destination           *DestinationConfig     `json:",omitempty"`
+	MaxInboundConnections int                    `json:",omitempty" alias:"max_inbound_connections"`
+	LocalConnectTimeoutMs int                    `json:",omitempty" alias:"local_connect_timeout_ms"`
+	LocalRequestTimeoutMs int                    `json:",omitempty" alias:"local_request_timeout_ms"`
 
 	Meta               map[string]string `json:",omitempty"`
 	acl.EnterpriseMeta `hcl:",squash" mapstructure:",squash"`
@@ -175,6 +183,12 @@ func (e *ServiceConfigEntry) Validate() error {
 
 	validationErr := validateConfigEntryMeta(e.Meta)
 
+	// External endpoints are invalid with an existing service's upstream configuration
+	if e.UpstreamConfig != nil && e.Destination != nil {
+		validationErr = multierror.Append(validationErr, errors.New("UpstreamConfig and Destination are mutually exclusive for service defaults"))
+		return validationErr
+	}
+
 	if e.UpstreamConfig != nil {
 		for _, override := range e.UpstreamConfig.Overrides {
 			err := override.ValidateWithName()
@@ -190,7 +204,46 @@ func (e *ServiceConfigEntry) Validate() error {
 		}
 	}
 
+	if e.Destination != nil {
+		if e.Destination.Addresses == nil || len(e.Destination.Addresses) == 0 {
+			validationErr = multierror.Append(validationErr, errors.New("Destination must contain at least one valid address"))
+		}
+
+		seen := make(map[string]bool, len(e.Destination.Addresses))
+		for _, address := range e.Destination.Addresses {
+			if _, ok := seen[address]; ok {
+				validationErr = multierror.Append(validationErr, fmt.Errorf("Duplicate address '%s' is not allowed", address))
+				continue
+			}
+			seen[address] = true
+
+			if err := validateEndpointAddress(address); err != nil {
+				validationErr = multierror.Append(validationErr, fmt.Errorf("Destination address '%s' is invalid %w", address, err))
+			}
+		}
+
+		if e.Destination.Port < 1 || e.Destination.Port > 65535 {
+			validationErr = multierror.Append(validationErr, fmt.Errorf("Invalid Port number %d", e.Destination.Port))
+		}
+	}
+
 	return validationErr
+}
+
+func validateEndpointAddress(address string) error {
+	var valid bool
+
+	ip := net.ParseIP(address)
+	valid = ip != nil
+
+	hasWildcard := strings.Contains(address, "*")
+	_, ok := dns.IsDomainName(address)
+	valid = valid || (ok && !hasWildcard)
+
+	if !valid {
+		return fmt.Errorf("Could not validate address %s as an IP or Hostname", address)
+	}
+	return nil
 }
 
 func (e *ServiceConfigEntry) CanRead(authz acl.Authorizer) error {
@@ -253,6 +306,25 @@ func (c *UpstreamConfiguration) Clone() *UpstreamConfiguration {
 	return &c2
 }
 
+// DestinationConfig represents a virtual service, i.e. one that is external to Consul
+type DestinationConfig struct {
+	// Addresses of the endpoint; hostname or IP
+	Addresses []string `json:",omitempty"`
+
+	// Port allowed within this endpoint
+	Port int `json:",omitempty"`
+}
+
+func IsHostname(address string) bool {
+	ip := net.ParseIP(address)
+	return ip == nil
+}
+
+func IsIP(address string) bool {
+	ip := net.ParseIP(address)
+	return ip != nil
+}
+
 // ProxyConfigEntry is the top-level struct for global proxy configuration defaults.
 type ProxyConfigEntry struct {
 	Kind             string
@@ -293,6 +365,13 @@ func (e *ProxyConfigEntry) Normalize() error {
 	}
 
 	e.Kind = ProxyDefaults
+
+	// proxy default config only accepts global configs
+	// this check is replicated in normalize() and validate(),
+	// since validate is not called by all the endpoints (e.g., delete)
+	if e.Name != "" && e.Name != ProxyConfigGlobal {
+		return fmt.Errorf("invalid name (%q), only %q is supported", e.Name, ProxyConfigGlobal)
+	}
 	e.Name = ProxyConfigGlobal
 
 	e.EnterpriseMeta.Normalize()
@@ -892,6 +971,11 @@ type PassiveHealthCheck struct {
 	// MaxFailures is the count of consecutive failures that results in a host
 	// being removed from the pool.
 	MaxFailures uint32 `json:",omitempty" alias:"max_failures"`
+
+	// EnforcingConsecutive5xx is the % chance that a host will be actually ejected
+	// when an outlier status is detected through consecutive 5xx.
+	// This setting can be used to disable ejection or to ramp it up slowly. Defaults to 100.
+	EnforcingConsecutive5xx *uint32 `json:",omitempty" alias:"enforcing_consecutive_5xx"`
 }
 
 func (chk *PassiveHealthCheck) Clone() *PassiveHealthCheck {
@@ -995,6 +1079,7 @@ type ServiceConfigResponse struct {
 	Expose            ExposeConfig           `json:",omitempty"`
 	TransparentProxy  TransparentProxyConfig `json:",omitempty"`
 	Mode              ProxyMode              `json:",omitempty"`
+	Destination       DestinationConfig      `json:",omitempty"`
 	Meta              map[string]string      `json:",omitempty"`
 	QueryMeta
 }

@@ -47,12 +47,22 @@ module.exports = [
   },
   {
     source: '/docs/agent/acl-system',
-    destination: '/docs/security/acl/acl-system',
+    destination: '/docs/security/acl',
     permanent: true,
   },
   {
     source: '/docs/acl/acl-system',
-    destination: '/docs/security/acl/acl-system',
+    destination: '/docs/security/acl',
+    permanent: true,
+  },
+  {
+    source: '/docs/security/acl/acl-system',
+    destination: '/docs/security/acl',
+    permanent: true,
+  },
+  {
+    source: '/docs/security/roles',
+    destination: '/docs/security/acl/acl-roles',
     permanent: true,
   },
   { source: '/docs/agent/http', destination: '/api-docs', permanent: true },
@@ -64,6 +74,11 @@ module.exports = [
   {
     source: '/docs/acl/acl-legacy',
     destination: '/docs/security/acl/acl-legacy',
+    permanent: true,
+  },
+  {
+    source: '/api-docs/acl/acl',
+    destination: '/api-docs/acl',
     permanent: true,
   },
   {
@@ -276,52 +291,6 @@ module.exports = [
     permanent: true,
   },
   { source: '/intro', destination: '/docs/intro', permanent: true },
-  { source: '/intro/vs', destination: '/docs/intro/vs', permanent: true },
-  {
-    source: '/intro/vs/chef-puppet',
-    destination: '/docs/intro/vs/chef-puppet',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/nagios',
-    destination: '/docs/intro/vs/nagios',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/skydns',
-    destination: '/docs/intro/vs/skydns',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/smartstack',
-    destination: '/docs/intro/vs/smartstack',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/serf',
-    destination: '/docs/intro/vs/serf',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/eureka',
-    destination: '/docs/intro/vs/eureka',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/istio',
-    destination: '/docs/intro/vs/istio',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/proxies',
-    destination: '/docs/intro/vs/proxies',
-    permanent: true,
-  },
-  {
-    source: '/intro/vs/custom',
-    destination: '/docs/intro/vs/custom',
-    permanent: true,
-  },
   {
     source: '/docs/k8s/ambassador',
     destination:
@@ -1094,7 +1063,12 @@ module.exports = [
   },
   {
     source: '/docs/k8s/upgrade/compatibility',
-    destination: '/docs/k8s/installation/compatibility',
+    destination: '/docs/k8s/compatibility',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/compatibility',
+    destination: '/docs/k8s/compatibility',
     permanent: true,
   },
   {
@@ -1246,17 +1220,17 @@ module.exports = [
   },
   {
     source: '/docs/release-notes/1-11-0',
-    destination: '/docs/releases/release-notes/v1_11_0',
+    destination: '/docs/release-notes/consul/v1_11_x',
     permanent: true,
   },
   {
     source: '/docs/release-notes/1-10-0',
-    destination: '/docs/releases/release-notes/v1_10_0',
+    destination: '/docs/release-notes/consul/v1_10_x',
     permanent: true,
   },
   {
     source: '/docs/release-notes/1-9-0',
-    destination: '/docs/releases/release-notes/v1_9_0',
+    destination: '/docs/release-notes/consul/v1_9_x',
     permanent: true,
   },
   {
@@ -1266,17 +1240,338 @@ module.exports = [
   },
   {
     source: '/docs/agent/options',
-    destination: '/docs/agent/config',
+    destination: '/docs/agent/config/config-files',
+    permanent: true,
+  },
+  {
+    source: '/docs/releases/release-notes/v1_11_0',
+    destination: '/docs/release-notes/consul/v1_11_x',
+    permanent: true,
+  },
+  {
+    source: '/docs/release-notes/1-10-0',
+    destination: '/docs/release-notes/consul/v1_10_x',
+    permanent: true,
+  },
+  {
+    source: '/docs/release-notes/1-9-0',
+    destination: '/docs/release-notes/consul/v1_9_x',
+    permanent: true,
+  },
+  {
+    source: '/docs/nia/release-notes/0-5-0',
+    destination: '/docs/release-notes/consul-terraform-sync/v0_5_x',
     permanent: true,
   },
   {
     source: '/docs/api-gateway/api-gateway-usage',
-    destination: '/docs/api-gateway/consul-api-gateway-install',
+    destination: '/docs/api-gateway/install',
+    permanent: true,
+  },
+  {
+    source: '/docs/api-gateway/consul-api-gateway-install',
+    destination: '/docs/api-gateway/install',
     permanent: true,
   },
   {
     source: '/docs/k8s/installation/vault/connect-ca',
     destination: '/docs/k8s/installation/vault/data-integration/connect-ca',
+    permanent: true,
+  },
+  {
+    source: '/docs/nia/installation/run',
+    destination: '/docs/nia/usage/run',
+    permanent: true,
+  },
+  {
+    source: '/docs/nia/installation/requirements',
+    destination: '/docs/nia/usage/requirements',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/install#consul-k8s-cli-installation',
+    destination: '/docs/k8s/installation/install-cli',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/clients-outside-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/clients-outside-kubernetes',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/servers-outside-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/servers-outside-kubernetes',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/single-dc-multi-k8s',
+    destination: '/docs/k8s/deployment-configurations/single-dc-multi-k8s',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/consul-enterprise',
+    destination: '/docs/k8s/deployment-configurations/consul-enterprise',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster',
+    destination: '/docs/k8s/deployment-configurations/multi-cluster',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster/kubernetes',
+    destination: '/docs/k8s/deployment-configurations/multi-cluster/kubernetes',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster/vms-and-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/multi-cluster/vms-and-kubernetes',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault',
+    destination: '/docs/k8s/deployment-configurations/vault',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/systems-integration',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/systems-integration',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration',
+    destination: '/docs/k8s/deployment-configurations/vault/data-integration',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/bootstrap-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/bootstrap-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/enterprise-license',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/enterprise-license',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/gossip',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/gossip',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/partition-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/partition-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/replication-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/replication-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/server-tls',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/server-tls',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/connect-ca',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/connect-ca',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/vault/data-integration/snapshot-agent-config',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/snapshot-agent-config',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/webhook-certs',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/webhook-certs',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/wan-federation',
+    destination: '/docs/k8s/deployment-configurations/vault/wan-federation',
+    permanent: true,
+  },
+  {
+    source: '/docs/api-gateway/common-errors',
+    destination: '/docs/api-gateway/usage#error-messages',
+    permanent: true,
+  },
+  {
+    source: '/docs/api-gateway/upgrade-specific-versions',
+    destination: '/docs/api-gateway/upgrades',
+    permanent: true,
+  },
+  {
+    source: '/docs/api-gateway/upgrade-specific-versions',
+    destination: '/docs/api-gateway/upgrades',
+    permanent: true,
+  },
+  {
+    source: '/docs/intro/usecases/what-is-service-discovery',
+    destination: '/docs/concepts/service-discovery',
+    permanent: true,
+  },
+  {
+    source: '/docs/intro/usecases/what-is-a-service-mesh',
+    destination: '/docs/concepts/service-mesh',
+    permanent: true,
+  },
+  {
+    source: '/docs/download-tools',
+    destination: '/docs/integrate/download-tools',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/install#consul-k8s-cli-installation',
+    destination: '/docs/k8s/installation/install-cli',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/clients-outside-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/clients-outside-kubernetes',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/servers-outside-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/servers-outside-kubernetes',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/single-dc-multi-k8s',
+    destination: '/docs/k8s/deployment-configurations/single-dc-multi-k8s',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/deployment-configurations/consul-enterprise',
+    destination: '/docs/k8s/deployment-configurations/consul-enterprise',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster',
+    destination: '/docs/k8s/deployment-configurations/multi-cluster',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster/kubernetes',
+    destination: '/docs/k8s/deployment-configurations/multi-cluster/kubernetes',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/multi-cluster/vms-and-kubernetes',
+    destination:
+      '/docs/k8s/deployment-configurations/multi-cluster/vms-and-kubernetes',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault',
+    destination: '/docs/k8s/deployment-configurations/vault',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/systems-integration',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/systems-integration',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration',
+    destination: '/docs/k8s/deployment-configurations/vault/data-integration',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/bootstrap-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/bootstrap-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/enterprise-license',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/enterprise-license',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/gossip',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/gossip',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/partition-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/partition-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/replication-token',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/replication-token',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/server-tls',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/server-tls',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/connect-ca',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/connect-ca',
+    permanent: true,
+  },
+  {
+    source:
+      '/docs/k8s/installation/vault/data-integration/snapshot-agent-config',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/snapshot-agent-config',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/data-integration/webhook-certs',
+    destination:
+      '/docs/k8s/deployment-configurations/vault/data-integration/webhook-certs',
+    permanent: true,
+  },
+  {
+    source: '/docs/k8s/installation/vault/wan-federation',
+    destination: '/docs/k8s/deployment-configurations/vault/wan-federation',
+    permanent: true,
+  },
+  {
+    source: '/docs/nia/installation/run',
+    destination: '/docs/nia/usage/run',
+    permanent: true,
+  },
+  {
+    source: '/docs/nia/installation/requirements',
+    destination: '/docs/nia/usage/requirements',
     permanent: true,
   },
 ]
