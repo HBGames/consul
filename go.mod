@@ -10,7 +10,7 @@ replace github.com/hashicorp/consul/proto-public => ./proto-public
 
 replace launchpad.net/gocheck => github.com/go-check/check v0.0.0-20140225173054-eb6ee6f84d0a
 
-replace github.com/hashicorp/go-discover => github.com/hbgames/go-discover v0.0.0-20221022232601-d2cdcd8a5b8e
+replace github.com/hashicorp/go-discover => github.com/hbgames/go-discover v0.0.0-20221023012830-28cac1151711
 
 require (
 	github.com/NYTimes/gziphandler v1.0.1
